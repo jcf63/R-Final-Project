@@ -235,7 +235,7 @@ models$BestModel # this gives you the best model.
 
 ############################
 # The best model has varialbes Age, Embarked, Pclass, and Gender. 
-# we re-run glm() with only these variables.
+# we re-run glm() with only these variables. try this
 ############################
 
 Select.model = glm(Survived~Age+Embarked+Pclass+Gender, data=train, family=binomial)
