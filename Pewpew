@@ -1,0 +1,274 @@
+##############
+#Classification - Logistic Regression 
+##############
+
+# install 'leaps' and 'bestglm' which we will use for variable selection in logistic regression
+
+
+
+library(readxl)
+library(leaps)
+library(bestglm)
+
+
+#######################
+# Admin Example
+#######################
+
+
+Admin = read_excel("Admin.xlsx")
+fix(Admin)
+
+
+# We first tell R that Completed is a categorical varialbe.
+Admin$Completed = as.factor(Admin$Completed)
+
+  # contrast() shows you category numbers assigned to the varialbe
+contrasts(Admin$Completed)
+
+
+# we use glm() function to run logistic regression. This is similar to lm().
+# Note that "family=binomial" tells R that this is logistic regression.
+nrow(Admin)
+trainindex = [75, 50]
+Train =
+
+
+LR.fit = glm(Completed~Experience + Training, data=Admin, family=binomial)
+summary(LR.fit)
+
+# coef() function shows you the coefficients of your logistic regression model. 
+coef(LR.fit)
+
+
+# we use predict() with type="response" to get the probablities for class-1
+
+Probabilities = predict(LR.fit,new = Admin, type="response")
+
+# to classify, we compare the probablities to cutoff value 0.5
+# and use table() to generate the confusion matrix
+
+Pred = rep("0",75)
+Pred[Probabilities >= 0.6] = "1"
+
+Actual.class = Admin$Completed
+table(Actual.class,Pred)
+
+
+##############################################
+#
+# Titanic Case
+#
+##############################################
+
+Titanic = read_excel("Titanic.xlsx")
+  fix(Titanic)
+
+# sum(is.na()) tells you if the number of rows where the varialbe is missing.
+
+sum(is.na(Titanic$Embarked)) #2
+
+# na.omit() deletes all the rows with missing information. 
+
+Titanic = na.omit(Titanic)
+
+# the 1-st and 4-th columns are PassengerID and names. We will remove these two columns.
+ 
+Titanic = cbind(Titanic[,2:3],Titanic[,5:10])
+
+#############################
+# Binning the age varialbe
+#############################
+
+# first find the minimum and maximum age
+
+min.Age = min(Titanic$Age)
+max.Age = max(Titanic$Age)
+
+# define the cutpoints to be used for binning. 
+# we want 5 bins with equal size. So we divide the age range (max.Age-min.Age)
+
+
+cut.points = min.Age + c(0:5)*(max.Age-min.Age)/5 
+
+# cut() functions bins the data using the cut.points. 
+
+binned.Age = cut(Titanic$Age,cut.points, include.lowest = TRUE)
+Titanic$Age = binned.Age
+
+
+#############################
+# Categorical varialbes
+#############################
+
+
+Titanic$Survived = as.factor(Titanic$Survived)
+contrasts(Titanic$Survived)
+
+Titanic$Pclass = as.factor(Titanic$Pclass)
+contrasts(Titanic$Pclass)
+
+Titanic$Gender = as.factor(Titanic$Gender)
+contrasts(Titanic$Gender)
+
+Titanic$Embarked = as.factor(Titanic$Embarked)
+contrasts(Titanic$Embarked)
+
+Titanic$Age = as.factor(Titanic$Age)
+contrasts(Titanic$Age)
+levels(Titanic$Age) = c("Bin1", "Bin2", "Bin3", "Bin4", "Bin5") 
+
+
+
+################################################
+# Full Model 
+################################################
+
+# next we partition the data. 
+# we put 427 points in training (60%) and the rest in validation
+
+set.seed(1) #set the seed for the random number generator so that you get the same samples every time in R
+trainindex = sample(712,427)
+train = Titanic[trainindex,]
+valid = Titanic[-trainindex,]
+
+Full.model = glm(Survived~., data=train, family=binomial)
+summary(Full.model)
+
+
+############################
+# confusion matrix for train 
+############################
+
+
+Probabilities = predict(Full.model,new = train, type="response")
+Pred = rep("0",427)
+Pred[Probabilities >= 0.5] = "1"
+Actual.class = train$Survived
+table(Actual.class,Pred)
+
+# Overal Error: (39+46)/427 = 0.1990632
+
+
+############################
+# confusion matrix for valid
+############################
+
+
+Probabilities.valid = predict(Full.model,new = valid, type="response")
+Pred.valid = rep("0",285)
+Pred.valid[Probabilities.valid >= 0.5] = "1"
+Actual.class = valid$Survived
+table(Actual.class,Pred.valid)
+
+# Overal Error: (21+32)/285 = 0.1859649
+
+
+################################################
+# Variable Selection
+################################################
+
+# first we create dummy varialbes for categorical varialbes with more than 2 categories. 
+# This is similar to how we do it in XLMiner
+# we create a new data-set called Titanic_aug using these dummy varialbes.
+
+Pclass1 = (Titanic$Pclass==1)
+Pclass2 = (Titanic$Pclass==2)
+EmbarkdC = (Titanic$Embarked =="C")
+EmbarkdQ = (Titanic$Embarked =="Q")
+AgeBin1 = (Titanic$Age == "Bin1")
+AgeBin2 = (Titanic$Age == "Bin2")
+AgeBin3 = (Titanic$Age == "Bin3")
+AgeBin4 = (Titanic$Age == "Bin4")
+Survived = Titanic$Survived
+Gender = Titanic$Gender
+SibSp = Titanic$SibSp
+Parch = Titanic$Parch
+Fare = Titanic$Fare 
+
+variables = as.data.frame(cbind(AgeBin1, AgeBin2, AgeBin3, AgeBin4, EmbarkdC, EmbarkdQ, Pclass1, Pclass2, Gender, SibSp, Parch, Fare))
+Titanic_aug = cbind(variables, Survived)
+
+#############################
+# Categorical varialbes
+#############################
+
+Titanic_aug$AgeBin1 = as.factor(Titanic_aug$AgeBin1)
+Titanic_aug$AgeBin2 = as.factor(Titanic_aug$AgeBin2)
+Titanic_aug$AgeBin3 = as.factor(Titanic_aug$AgeBin3)
+Titanic_aug$AgeBin4 = as.factor(Titanic_aug$AgeBin4)
+Titanic_aug$EmbarkdC = as.factor(Titanic_aug$EmbarkdC)
+Titanic_aug$EmbarkdQ = as.factor(Titanic_aug$EmbarkdQ)
+Titanic_aug$Pclass1 = as.factor(Titanic_aug$Pclass1)
+Titanic_aug$Pclass2 = as.factor(Titanic_aug$Pclass2)
+Titanic_aug$Gender = as.factor(Titanic_aug$Gender)
+Titanic_aug$Survived = as.factor(Titanic_aug$Survived)
+
+
+
+################################################
+# Selected Model by bestglm()  
+################################################
+
+
+# we partition the new-data set the same way we did before
+
+train_aug = Titanic_aug[trainindex,]
+valid_aug = Titanic_aug[-trainindex,]
+
+# use the bestglm() function to find the best subset. 
+# this is similar to the regsubsets() function which we used for variable selection in linear regression
+# the first argument includes the data. The last column must be the outcome variable.  
+# note that we only use the train data-set.
+# IC = "AIC" tells R to use the AIC creteria to select model. Roughly speaking AIC gives the amount of 
+# ``information loss'' in a model. R selects models with small AIC.    
+# family = binomial tells R that this is logistic regression model
+#"method" tells R how to perform the variable selection. Possible values are "exhaustive" (best
+#subsets), "backward", "forward", or "seqrep". In the code below we run bestglm with the 
+#"exhaustive" method. You can replace this with any of the other three options and repeat the
+#analysis
+
+models = bestglm(train_aug, IC = "AIC", family = binomial, method = "exhaustive")
+models$BestModels # this gives you the best 5 models.
+models$BestModel # this gives you the best model.
+
+
+############################
+# The best model has varialbes Age, Embarked, Pclass, and Gender. 
+# we re-run glm() with only these variables.
+############################
+
+Select.model = glm(Survived~Age+Embarked+Pclass+Gender, data=train, family=binomial)
+summary(Select.model)
+
+
+############################
+# confusion matrix for train 
+############################
+
+Probabilities = predict(Select.model,new = train, type="response")
+
+Pred = rep("0",427)
+Pred[Probabilities >= 0.5] = "1"
+
+Actual.class = train$Survived
+table(Actual.class,Pred)
+
+# Overal Error: (38+48)/427 = 0.2014052
+
+
+############################
+# confusion matrix for valid
+############################
+
+Probabilities.valid = predict(Select.model,new = valid, type="response")
+
+Pred.valid = rep("0",285)
+Pred.valid[Probabilities.valid >= 0.5] = "1"
+
+Actual.class = valid$Survived
+table(Actual.class,Pred.valid)
+
+# Overal Error: (20+33)/285 = 0.1859649
+
+
